@@ -7,6 +7,9 @@
 <style>
   :root {
     --purple: #5B3399; --purple-light: #9B7FC4; --purple-dark: #3D2266;
+    /* two extra steps so the revenue -> GP -> contribution ramp is
+       distinguishable under colour-blindness (validated, see notes) */
+    --purple-mid: #6B44A6; --purple-deep: #2E1A4D;
     --ink: #1C1B22; --slate: #6B6478; --line: #E3E0EA;
     --canvas: #F7F6F9; --surface: #FFFFFF;
     --good: #0E6B58; --bad: #C4326E;
@@ -16,6 +19,8 @@
          background: var(--canvas); color: var(--ink); }
   h1 { font-size: 22px; margin: 0 0 4px; color: var(--purple-dark); }
   .sub { color: var(--slate); font-size: 13px; margin-bottom: 20px; }
+  #pageHeader { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+  #firmLogo { height: 48px; width: auto; flex-shrink: 0; }
 
   /* ---------- global filter bar ---------- */
   #filterBar { background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
@@ -76,7 +81,6 @@
   .up { color:var(--good); } .down { color:var(--bad); }
   .tag { display:inline-block; font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
          padding:2px 6px; border-radius:2px; margin-left:6px; }
-  .t-same { background:#EFEDF4; color:var(--slate); } .t-new { background:#FDF6E9; color:#A8761A; }
   .t-flag { background:#FBE9F0; color:var(--bad); }
   .assume { background:#FAF9FC; border:1px dashed var(--line); border-radius:4px; padding:11px 13px;
             font-size:11.5px; color:#3A3644; margin-top:12px; line-height:1.55; }
@@ -103,12 +107,43 @@
   #tabs button.on { color:var(--purple-dark); border-bottom-color:var(--purple); }
   .section { display:none; }
   .section.on { display:block; }
+
+  /* ---------- section 2: charts, matrix ---------- */
+  .chartBox { position:relative; height:300px; }          /* Chart.js needs a sized parent */
+  .grid2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(400px,1fr)); gap:14px; }
+  .grid2 > .card { margin-bottom:0; }
+  .mtx th, .mtx td { text-align:center; }
+  .mtx th:first-child, .mtx td:first-child { text-align:left; font-weight:600; }
+  .mtx tbody tr { cursor:default; }
+  .mtx tbody tr:hover { background:transparent; }
+  .cell { display:block; border-radius:3px; padding:8px 4px; font-weight:700;
+          font-variant-numeric:tabular-nums; }
+  .cell small { display:block; font-weight:400; font-size:9.5px; color:var(--slate); margin-top:2px; }
+  .swatch { display:inline-flex; align-items:center; gap:6px; font-size:11px; color:#3A3644; }
+  .swatch i { width:9px; height:9px; border-radius:1px; display:inline-block; }
+
+  /* ---------- section 3: income statement ---------- */
+  .grid2col { display:grid; grid-template-columns:1.3fr 1fr; gap:14px; align-items:start; }
+  @media (max-width:900px) { .grid2col { grid-template-columns:1fr; } }
+  .chartBoxTall { position:relative; height:360px; }
+  .chartBoxShort { position:relative; height:260px; }
+  tr.subtot td { border-top:1px solid var(--ink); font-weight:700; }
+  tr.rowgroup td { padding-top:16px; font-size:9.5px; text-transform:uppercase;
+                   letter-spacing:.08em; color:var(--slate); font-weight:700; border-bottom:0; }
+  .peerStat { display:flex; justify-content:space-between; padding:8px 0; border-top:1px solid #F0EEF4; font-size:12.5px; }
+  .peerStat:first-child { border-top:0; }
+  .peerStat b { font-variant-numeric:tabular-nums; }
 </style>
 </head>
 <body>
 
-<h1>CafeCorp — Executive Summary</h1>
-<div class="sub">16 locations · Jan 2024 – Dec 2025 · All figures MXN</div>
+<div id="pageHeader">
+  <div>
+    <h1>CafeCorp — Performance Dashboard</h1>
+    <div class="sub">16 locations · Jan 2024 – Dec 2025 · All figures MXN</div>
+  </div>
+  <img id="firmLogo" src="data:image/png;base64,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" alt="Akton Partners">
+</div>
 
 <div id="filterBar"></div>
 <div id="tabs"></div>
@@ -122,7 +157,27 @@
 </div>
 
 <div class="section" id="sec-sales">
-  <div id="salesCharts"></div>
+  <div id="salesTrend"></div>
+  <div id="chanBreak"></div>
+  <div id="catBreak"></div>
+  <div id="catChanMatrix"></div>
+  <div id="locBreak"></div>
+  <div id="prodTable"></div>
+</div>
+
+<div class="section" id="sec-pl">
+  <div id="waterfall"></div>
+  <div id="plStatement"></div>
+  <div id="locMargin"></div>
+  <div id="salesTarget"></div>
+</div>
+
+<div class="section" id="sec-inventory">
+  <div id="wasteByLoc"></div>
+  <div id="wasteOverTime"></div>
+  <div id="wasteByItem"></div>
+  <div id="doiByLoc"></div>
+  <div id="itemTable"></div>
 </div>
 
 <script>
@@ -143,6 +198,7 @@ const STATE = {
   selectedFormat: null,
   selectedLoc: null,
   tab: 'exec',   // 'exec' | 'sales' | 'pl' | 'inventory'
+  prodSort: { key:'rev', dir:-1 },   // product table sort column + direction
 };
 
 const BRAND = {
@@ -151,7 +207,40 @@ const BRAND = {
 };
 const FORMAT_COLORS = { Flagship: BRAND.purple, Standard: BRAND.slate, Kiosk: BRAND.purpleLight };
 
-let chart = null;   // Chart.js instance, created once then updated
+// Ordinal purple ramp for cohort (older store <-> newer store has a real order,
+// so light->dark, not an arbitrary categorical hue per value). One definition,
+// reused everywhere a cohort needs a colour: the efficiency scatter, the
+// scorecard tags. Raw values ('Same-store' etc.) stay the lookup keys — logic
+// and equality checks never touch the display strings.
+const COHORT_COLOR = { 'Same-store':'#2E1A4D', '2024 openings':'#6B44A6', '2025 openings':'#9B7FC4' };
+const COHORT_LABEL = { 'Same-store':'Established', '2024 openings':'Opened 2024', '2025 openings':'Opened 2025' };
+const cohortLabel = raw => COHORT_LABEL[raw] || raw;
+// Scorecard-tag-only colours. Every tag carries its full name as text, so
+// colour is a reinforcing cue there, not the sole identifier — unlike the
+// scatter chart's dots (COHORT_COLOR, unchanged), which rely on colour +
+// legend with no per-mark label. That's why this can afford to sit closer to
+// the mid step than COHORT_COLOR does: white text needs backgrounds dark
+// enough that the lightest step and the mid step converge somewhat.
+// Contrast checked (white text): #2E1A4D 15.3 / #6B44A6 7.0 / #7A5CA6 5.4 —
+// all clear the 4.5 WCAG AA threshold for this font size.
+const COHORT_TAG_COLOR = { 'Same-store':'#2E1A4D', '2024 openings':'#6B44A6', '2025 openings':'#7A5CA6' };
+
+// Chart.js instances, keyed by canvas id. Section 2 has several charts, so a
+// single `chart` variable no longer works. upsertChart() destroys any previous
+// instance bound to that id before creating the new one — without the destroy,
+// Chart.js throws "Canvas is already in use" the second time a section rebuilds.
+const CHARTS = {};
+function upsertChart(id, config) {
+  const el = document.getElementById(id);
+  if (!el) return;                       // section not rendered — nothing to draw
+  if (CHARTS[id]) CHARTS[id].destroy();
+  CHARTS[id] = new Chart(el, config);
+}
+
+// Shared Chart.js defaults so every chart in the dashboard reads as one system.
+const AXIS = { grid: { color:'#F0EEF4' }, border: { display:false },
+               ticks: { color:'#6B6478', font:{ size:11 } } };
+const MXN  = v => '$' + (v/1e6).toFixed(1) + 'M';
 
 // ═══════════════════════════════════════════════════════════
 // PERIOD RESOLUTION — turn STATE.period into month index bounds
@@ -173,10 +262,10 @@ function computePL(a, b, opts = {}) {
   const okP = p => catFilter.size  === 0 || catFilter.has(DATA.products[p].cat);
 
   let revenue=0, cogs=0, discount=0, units=0, commission=0, tickets=0;
-  const byMonth = DATA.months.map(() => ({ rev:0, cogs:0, comm:0 }));
-  const byLoc   = DATA.locations.map(() => ({ rev:0, cogs:0, comm:0, opex:0 }));
-  const byChan  = DATA.channels.map(() => ({ rev:0, cogs:0, comm:0 }));
-  const byCat   = DATA.categories.map(() => ({ rev:0, cogs:0, comm:0 }));
+  const byMonth = DATA.months.map(() => ({ rev:0, cogs:0, comm:0, units:0, disc:0 }));
+  const byLoc   = DATA.locations.map(() => ({ rev:0, cogs:0, comm:0, units:0, disc:0, opex:0 }));
+  const byChan  = DATA.channels.map(() => ({ rev:0, cogs:0, comm:0, units:0, disc:0 }));
+  const byCat   = DATA.categories.map(() => ({ rev:0, cogs:0, comm:0, units:0, disc:0 }));
 
   // --- sales fact: [monthIdx, locIdx, chanIdx, prodIdx, qty, net, disc] ---
   for (const r of DATA.sales) {
@@ -185,11 +274,11 @@ function computePL(a, b, opts = {}) {
     const cg = q * DATA.products[p].cost;
     const cm = net * DATA.channels[c].comm;
     revenue += net; cogs += cg; discount += disc; units += q; commission += cm;
-    byMonth[m].rev += net; byMonth[m].cogs += cg; byMonth[m].comm += cm;
-    byLoc[l].rev   += net; byLoc[l].cogs   += cg; byLoc[l].comm   += cm;
-    byChan[c].rev  += net; byChan[c].cogs  += cg; byChan[c].comm  += cm;
+    byMonth[m].rev += net; byMonth[m].cogs += cg; byMonth[m].comm += cm; byMonth[m].units += q; byMonth[m].disc += disc;
+    byLoc[l].rev   += net; byLoc[l].cogs   += cg; byLoc[l].comm   += cm; byLoc[l].units   += q; byLoc[l].disc   += disc;
+    byChan[c].rev  += net; byChan[c].cogs  += cg; byChan[c].comm  += cm; byChan[c].units  += q; byChan[c].disc  += disc;
     const k = DATA.products[p].cat;
-    byCat[k].rev   += net; byCat[k].cogs   += cg; byCat[k].comm   += cm;
+    byCat[k].rev   += net; byCat[k].cogs   += cg; byCat[k].comm   += cm; byCat[k].units   += q; byCat[k].disc   += disc;
   }
 
   // --- tickets fact: [monthIdx, locIdx, chanIdx, tickets] ---
@@ -232,12 +321,12 @@ function computePL(a, b, opts = {}) {
   const opex = labor + rent + util + mkt + other;
 
   // --- targets fact: [monthIdx, locIdx, chanIdx, catIdx, salesTgt, gpTgt] ---
-  let salesTarget = 0;
+  let salesTarget = 0, gpTarget = 0;
   for (const r of DATA.targets) {
-    const [m, l, c, k, st] = r;
+    const [m, l, c, k, st, gt] = r;
     if (m < a || m > b || !okL(l) || !okC(c)) continue;
     if (catFilter.size > 0 && !catFilter.has(k)) continue;
-    salesTarget += st;
+    salesTarget += st; gpTarget += gt;
   }
 
   const grossProfit  = revenue - cogs;
@@ -246,7 +335,7 @@ function computePL(a, b, opts = {}) {
 
   return {
     revenue, cogs, discount, units, commission, tickets, opex,
-    labor, rent, util, mkt, other, salesTarget,
+    labor, rent, util, mkt, other, salesTarget, gpTarget,
     grossProfit, contribution, operating,
     grossMarginPct:  revenue ? 100 * grossProfit  / revenue : 0,
     contributionPct: revenue ? 100 * contribution / revenue : 0,
@@ -261,6 +350,13 @@ function computePL(a, b, opts = {}) {
 // ═══════════════════════════════════════════════════════════
 const money = v => (v < 0 ? '-' : '') + '$' + (Math.abs(v)/1e6).toFixed(1) + 'M';
 const pct   = v => v.toFixed(1) + '%';
+// thousands — for figures too small to read in millions (revenue per m², etc.)
+const moneyK = v => (v < 0 ? '-' : '') + '$' + Math.round(Math.abs(v)/1e3) + 'k';
+// plain integer with separators — units sold
+const num = v => Math.round(v).toLocaleString('en-US');
+// full-precision peso amount — for per-unit prices/costs (money() divides by
+// 1e6 for headline aggregates, which would turn a $27.47 cost into garbage)
+const moneyUnit = v => '$' + v.toFixed(2);
 
 // ═══════════════════════════════════════════════════════════
 // RENDER — the single entry point. Any state change calls this.
@@ -281,6 +377,27 @@ function render() {
     buildLadder();
     buildCohortTable();
     buildScorecard();
+  }
+  if (STATE.tab === 'sales') {
+    buildSalesTrend(a, b);
+    buildChannelBreakdown(a, b);
+    buildCategoryBreakdown(a, b);
+    buildCatChanMatrix(a, b);
+    buildLocationEfficiency(a, b);
+    buildProductTable(a, b);
+  }
+  if (STATE.tab === 'pl') {
+    buildWaterfall(cur);
+    buildStatement(cur, py);
+    buildLocMargin(a, b);
+    buildSalesTargetChart(a, b);
+  }
+  if (STATE.tab === 'inventory') {
+    buildWasteByLoc(a, b);
+    buildWasteOverTime(a, b);
+    buildWasteByItem(a, b);
+    buildDoiByLoc(a, b);
+    buildItemTable(a, b);
   }
 }
 
@@ -307,9 +424,19 @@ function buildKPIStrip(cur, py) {
     { label:'Operating profit', val: money(cur.operating),    sub: pct(cur.operatingPct),
       pp: py ? cur.operatingPct - py.operatingPct : null },
     { label:'Avg ticket',       val: '$' + cur.avgTicket.toFixed(0),
+      sub: cur.tickets ? (cur.units/cur.tickets).toFixed(1) + ' items/ticket' : '',
       pyv: py && py.avgTicket, cv: cur.avgTicket },
-    { label:'vs sales target',  val: cur.salesTarget ? pct(100*cur.revenue/cur.salesTarget) : '—',
-      sub: cur.salesTarget ? money(cur.revenue - cur.salesTarget) + ' gap' : '' }
+    // one card covers both target types — sales attainment as the headline
+    // number (unchanged), GP attainment takes the slot that would otherwise
+    // just say "no prior-year comparison" (a target card has no PY delta
+    // anyway), so this adds real information without adding a 7th card.
+    { label:'vs targets',       val: cur.salesTarget ? pct(100*cur.revenue/cur.salesTarget) : '—',
+      sub: cur.salesTarget ? money(cur.revenue - cur.salesTarget) + ' sales gap' : '',
+      custom: cur.gpTarget ? (() => {
+        const gpAtt = 100 * cur.grossProfit / cur.gpTarget;
+        const cls = gpAtt >= 100 ? 'up' : 'down';
+        return `<div class="kpiDelta ${cls}">${gpAtt>=100?'▲':'▼'} ${gpAtt.toFixed(1)}% of GP target</div>`;
+      })() : null }
   ];
 
   document.getElementById('kpiStrip').innerHTML = cards.map(c => {
@@ -322,6 +449,7 @@ function buildKPIStrip(cur, py) {
       const cls = d >= 0 ? 'up' : 'down';
       delta = `<div class="kpiDelta ${cls}">${d >= 0 ? '▲' : '▼'} ${Math.abs(d).toFixed(1)}% vs prior year</div>`;
     }
+    if (c.custom !== undefined && c.custom !== null) delta = c.custom;
     return `<div class="kpiCard">
       <div class="kpiLabel">${c.label}</div>
       <div class="kpiValue">${c.val}${c.sub ? ` <span class="kpiSub">${c.sub}</span>` : ''}</div>
@@ -366,20 +494,17 @@ function buildChartDatasets(a, b) {
 }
 
 function drawChart(a, b) {
-  const labels = DATA.months.slice(a, b+1);
-  const datasets = buildChartDatasets(a, b);
-  if (!chart) {
-    chart = new Chart(document.getElementById('revChart'), {
-      type: 'line', data: { labels, datasets },
-      options: { responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },
-        scales: { y: { ticks: { callback: v => '$' + (v/1e6).toFixed(1) + 'M' } } } }
-    });
-  } else {
-    chart.data.labels = labels;
-    chart.data.datasets = datasets;
-    chart.update();
-  }
+  upsertChart('revChart', {
+    type: 'line',
+    data: { labels: DATA.months.slice(a, b+1), datasets: buildChartDatasets(a, b) },
+    options: { responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 }, color: '#3A3644' } },
+        tooltip: { callbacks: { label: c => `${c.dataset.label}: ${MXN(c.parsed.y)}` } }
+      },
+      scales: { x: AXIS, y: { ...AXIS, ticks: { ...AXIS.ticks, callback: MXN } } } }
+  });
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -493,6 +618,42 @@ function buildFilterBar() {
 // ═══════════════════════════════════════════════════════════
 // FINDINGS BLOCK — conclusions in prose, computed live
 // ═══════════════════════════════════════════════════════════
+// Worst-performing location by FY2025 operating margin, vs its like-for-like peer
+// set (same format + same cohort). Shared by Finding 3 on the Executive Summary
+// and the dedicated panel in Section 3 — both need the identical comparison, so
+// it's computed once here rather than kept in sync by hand in two places.
+function worstLocVsPeers() {
+  const M = DATA.months;
+  const yr = y => { const i = M.findIndex(m=>m.startsWith(y)); let j=i; M.forEach((m,k)=>{if(m.startsWith(y))j=k}); return [i,j]; };
+  const [a,b] = yr('2025');
+  const all = computePL(a, b, {locs:new Set(), chans:new Set(), cats:new Set()});
+
+  const locStats = DATA.locations.map((l,i)=>{
+    const x = all.byLoc[i]; const gp = x.rev - x.cogs; const op = gp - x.comm - x.opex;
+    return { i, name:l.name, fmt:l.format, cohort:l.cohort, rev:x.rev, opex:x.opex,
+             opm: x.rev ? 100*op/x.rev : 0, gpm: x.rev ? 100*gp/x.rev : 0,
+             opexPctRev: x.rev ? 100*x.opex/x.rev : 0 };
+  }).filter(s=>s.rev>0).sort((p,q)=>p.opm-q.opm);
+
+  const worst = locStats[0], best = locStats[locStats.length-1];
+  // Peer set: same FORMAT and same COHORT, so the comparison is like-for-like on
+  // both store size and maturity — this is the step that separates "costs are
+  // high" from "revenue is low," which look identical as ratios alone.
+  const peers = locStats.filter(s => s.i !== worst.i && s.fmt === worst.fmt && s.cohort === worst.cohort);
+  const avg = k => peers.length ? peers.reduce((s,p) => s + p[k], 0) / peers.length : 0;
+
+  return {
+    a, b, worst, best, peers, locStats,
+    revGap:  avg('rev')  ? 100*(worst.rev  / avg('rev')  - 1) : 0,
+    opexGap: avg('opex') ? 100*(worst.opex / avg('opex') - 1) : 0,
+    gpmGap:  worst.gpm - avg('gpm'),
+    opexPctGap: worst.opexPctRev - avg('opexPctRev'),
+    opmGap: worst.opm - avg('opm'),
+    peerRev: avg('rev'), peerOpex: avg('opex'), peerGpm: avg('gpm'),
+    peerOpexPct: avg('opexPctRev'), peerOpm: avg('opm')
+  };
+}
+
 function buildFindings() {
   const M = DATA.months;
   const yr = y => { const i = M.findIndex(m=>m.startsWith(y)); let j=i; M.forEach((m,k)=>{if(m.startsWith(y))j=k}); return [i,j]; };
@@ -510,8 +671,11 @@ function buildFindings() {
   const grpGrowth = 100*(tot25/tot24 - 1);
   const ssCount = DATA.locations.filter(l=>l.cohort==='Same-store').length;
 
-  // channel economics over current period
-  const [a,b] = resolveRange();
+  // Every finding below is fixed to full-year 2025 across all 16 stores and ignores
+  // the filter bar. These are structural conclusions about the business, not a filtered
+  // view — if they moved on every click they would stop being findings. The ladder,
+  // scorecard and Section 2 are the analytical tools that DO respond to filters.
+  const [a,b] = y25;
   const all = computePL(a, b, {locs:new Set(), chans:new Set(), cats:new Set()});
   const di = DATA.channels.findIndex(c=>c.name==='Delivery');
   const dv = all.byChan[di];
@@ -521,12 +685,11 @@ function buildFindings() {
   const dineCM = dine.rev ? 100*(dine.rev-dine.cogs-dine.comm)/dine.rev : 0;
   const dvContrib = dv.rev - dv.cogs - dv.comm;
 
-  // worst location by operating margin
-  const locStats = DATA.locations.map((l,i)=>{
-    const x = all.byLoc[i]; const op = x.rev - x.cogs - x.comm - x.opex;
-    return {name:l.name, rev:x.rev, opm: x.rev ? 100*op/x.rev : 0, gpm: x.rev ? 100*(x.rev-x.cogs)/x.rev : 0};
-  }).filter(s=>s.rev>0).sort((p,q)=>p.opm-q.opm);
-  const worst = locStats[0], best = locStats[locStats.length-1];
+  // worst location vs its like-for-like peers — full mechanics live in the
+  // Income Statement panel (worstLocVsPeers() is shared with it); only the
+  // headline number is needed here.
+  const cmp = worstLocVsPeers();
+  const { worst } = cmp;
 
   // waste
   let usage=0, waste=0;
@@ -540,31 +703,38 @@ function buildFindings() {
 
   document.getElementById('findings').innerHTML = `
     <div class="card"><h3>The headline</h3>
-    <div class="note">What leadership needs to know first, in order of financial materiality.</div>
+    <div class="note">What leadership needs to know first, in order of financial materiality.
+    <b>Fixed to full-year 2025 vs 2024, all 16 locations</b> — these are structural conclusions,
+    so they deliberately do not move with the filter bar. Everything below them does.</div>
     <div class="finding sev-bad"><span class="fnum">01</span><div>
       <h4>Reported growth of ${grpGrowth.toFixed(1)}% is mostly new stores, not a stronger business</h4>
-      <p>2025 revenue grew to <b>${money(tot25)}</b>, but the ${ssCount} same-store locations grew only
-      <b>${ssGrowth.toFixed(1)}%</b> — the rest is new-store footprint, not underlying improvement.</p></div></div>
+      <p>Established locations (${ssCount} of 16) grew just <b>${ssGrowth.toFixed(1)}%</b> — the rest is
+      new-store footprint, not underlying improvement.</p></div></div>
     <div class="finding sev-warn"><span class="fnum">02</span><div>
       <h4>Delivery earns a normal gross margin, then pays ${(dvGP-dvCM).toFixed(1)}pp of it to the aggregator</h4>
-      <p>Delivery's gross margin (<b>${dvGP.toFixed(1)}%</b>) matches dine-in — not a pricing issue. The
-      <b>${(DATA.channels[di].comm*100).toFixed(0)}%</b> commission drops contribution to <b>${dvCM.toFixed(1)}%</b>
-      (vs <b>${dineCM.toFixed(1)}%</b> dine-in), but it still contributes <b>${money(dvContrib)}</b> — the fix is
-      menu mix on that channel, not cutting it.</p></div></div>
+      <p>Gross margin (<b>${dvGP.toFixed(1)}%</b>) matches dine-in, but it still contributes
+      <b>${money(dvContrib)}</b> — the fix is menu mix on that channel, not cutting it.
+      See Sales &amp; Gross Profit for the category-level detail.</p></div></div>
     <div class="finding ${worst && worst.opm < 0 ? 'sev-bad':'sev-warn'}"><span class="fnum">03</span><div>
-      <h4>${worst ? worst.name : ''} is the largest single drag on operating profit</h4>
-      <p><b>${worst?worst.name:''}</b> runs <b>${worst?worst.opm.toFixed(1):0}%</b> operating margin vs
-      <b>${best?best.opm.toFixed(1):0}%</b> at ${best?best.name:''}. Gross margin matches peers
-      (<b>${worst?worst.gpm.toFixed(1):0}%</b>), so this is a cost-base problem, not pricing.</p></div></div>
+      <h4>${worst.name} is the largest single drag — and it is a demand problem, not a cost problem</h4>
+      <p>Revenue is <b>${Math.abs(cmp.revGap).toFixed(0)}%</b> below comparable peers while its cost base is
+      in line — not overspending, just underselling. See Income Statement for the peer comparison.</p></div></div>
     <div class="finding sev-none"><span class="fnum">04</span><div>
       <h4>Waste runs at ${wastePct.toFixed(2)}% of throughput</h4>
-      <p><b>${money(waste)}</b> written off. The uniform rate across stores and items points to an
-      ordering/shelf-life process issue, not one bad product line.</p></div></div>`;
+      <p><b>${money(waste)}</b> written off. A uniform rate across stores and items points to an
+      ordering/shelf-life process, not one bad product line. See Inventory for the full breakdown.</p></div></div>`;
 }
 
 // ═══════════════════════════════════════════════════════════
 // GROWTH DECOMPOSITION TABLE
 // ═══════════════════════════════════════════════════════════
+// Growth decomposition — deliberately chart-only, no table underneath. Every
+// number that used to live in a table row (revenue both years, growth %,
+// store count) is now drawn directly on the chart via cohortLabels below, so
+// there's nothing left to explain in prose. Op margin is dropped from this
+// specific view — it's already covered by the scorecard and the Section 2
+// efficiency scatter, and repeating it here just to fill a table column added
+// a metric this chart isn't actually about (growth, not profitability).
 function buildCohortTable() {
   const M = DATA.months;
   const yr = y => { const i=M.findIndex(m=>m.startsWith(y)); let j=i; M.forEach((m,k)=>{if(m.startsWith(y))j=k}); return [i,j]; };
@@ -575,25 +745,61 @@ function buildCohortTable() {
     const locs = new Set(DATA.locations.map((l,i)=>l.cohort===c?i:-1).filter(i=>i>=0));
     const p24 = computePL(y24[0],y24[1],{locs,chans:new Set(),cats:new Set()});
     const p25 = computePL(y25[0],y25[1],{locs,chans:new Set(),cats:new Set()});
-    return { name:c, n:locs.size, r24:p24.revenue, r25:p25.revenue,
-             growth: p24.revenue ? 100*(p25.revenue/p24.revenue-1) : null, opm: p25.operatingPct };
+    return { label:`${cohortLabel(c)} (${locs.size})`, r24:p24.revenue, r25:p25.revenue,
+             growth: p24.revenue ? 100*(p25.revenue/p24.revenue-1) : null };
   });
-  const t24 = rows.reduce((s,r)=>s+r.r24,0), t25 = rows.reduce((s,r)=>s+r.r25,0);
 
   document.getElementById('cohortTable').innerHTML = `
     <div class="card"><h3>Growth decomposition — 2025 vs 2024</h3>
-    <div class="note">Same-store is the only like-for-like comparison. New-store cohorts inflate group growth.</div>
-    <table><thead><tr><th>Cohort</th><th>Stores</th><th>2024 revenue</th><th>2025 revenue</th><th>Growth</th><th>2025 op margin</th></tr></thead>
-    <tbody>${rows.map(r=>`<tr>
-      <td>${r.name}<span class="tag ${r.name==='Same-store'?'t-same':'t-new'}">${r.name==='Same-store'?'like-for-like':'new'}</span></td>
-      <td>${r.n}</td><td>${r.r24?money(r.r24):'—'}</td><td>${money(r.r25)}</td>
-      <td class="${r.growth>=0?'up':'down'}">${r.growth!==null?(r.growth>=0?'+':'')+r.growth.toFixed(1)+'%':'n/a'}</td>
-      <td class="${r.opm>=0?'up':'down'}">${r.opm.toFixed(1)}%</td></tr>`).join('')}
-    <tr class="tot"><td>Group reported</td><td>${DATA.locations.length}</td><td>${money(t24)}</td><td>${money(t25)}</td>
-      <td class="up">+${(100*(t25/t24-1)).toFixed(1)}%</td><td>—</td></tr></tbody></table>
-    <div class="assume"><b>Why this split:</b> "Same-store" = opened before 1 Jan 2024, so both years are complete.
-    The 2024 cohort opened mid-year, so its growth is mostly annualisation of a partial first year, not underlying improvement.
-    The 2025 cohort has no prior-year base at all — its figure is pure addition, not a growth rate.</div></div>`;
+    <div class="note">Established locations are the only fair year-over-year comparison — new stores inflate
+    the group total shown at the top of the page.</div>
+    <div class="chartBoxTall"><canvas id="cohortChart"></canvas></div></div>`;
+
+  // Same light->deep purple ramp used for the funnel bars elsewhere — 2024 in
+  // the lighter step, 2025 in the deeper one. 2025-openings has no 2024 bar
+  // (null, not zero) since it has no prior-year baseline at all.
+  const cohortLabels = {
+    id: 'cohortLabels',
+    afterDatasetsDraw(chart) {
+      const { ctx } = chart;
+      ctx.save();
+      ctx.textAlign = 'center';
+      const m24 = chart.getDatasetMeta(0).data, m25 = chart.getDatasetMeta(1).data;
+      ctx.font = '600 11px system-ui, -apple-system, sans-serif';
+      ctx.fillStyle = '#3A3644';
+      rows.forEach((r,i) => {
+        if (r.r24) ctx.fillText(MXN(r.r24), m24[i].x, m24[i].y - 6);
+        ctx.fillText(MXN(r.r25), m25[i].x, m25[i].y - 6);
+      });
+      ctx.font = '700 12px system-ui, -apple-system, sans-serif';
+      rows.forEach((r,i) => {
+        const topY = (r.r24 ? Math.min(m24[i].y, m25[i].y) : m25[i].y) - 24;
+        const cx = r.r24 ? (m24[i].x + m25[i].x) / 2 : m25[i].x;
+        const label = r.growth !== null ? `${r.growth>=0?'+':''}${r.growth.toFixed(1)}%` : 'new in 2025';
+        ctx.fillStyle = r.growth === null ? '#6B6478' : (r.growth >= 0 ? '#0E6B58' : '#C4326E');
+        ctx.fillText(label, cx, topY);
+      });
+      ctx.restore();
+    }
+  };
+
+  upsertChart('cohortChart', {
+    type: 'bar',
+    data: { labels: rows.map(r=>r.label), datasets: [
+      { label:'2024 revenue', data: rows.map(r=>r.r24 || null), backgroundColor:'#9B7FC4',
+        borderRadius:{topLeft:4,topRight:4}, categoryPercentage:0.6, barPercentage:0.85 },
+      { label:'2025 revenue', data: rows.map(r=>r.r25), backgroundColor:'#2E1A4D',
+        borderRadius:{topLeft:4,topRight:4}, categoryPercentage:0.6, barPercentage:0.85 }
+    ] },
+    options: { responsive:true, maintainAspectRatio:false,
+      layout: { padding: { top: 44 } },   // room for the growth-% label drawn above the tallest bar
+      plugins: {
+        legend: { position:'bottom', labels:{ boxWidth:12, font:{size:11}, color:'#3A3644' } },
+        tooltip: { callbacks: { label:c => `${c.dataset.label}: ${MXN(c.parsed.y)}` } }
+      },
+      scales: { x:AXIS, y:{ ...AXIS, beginAtZero:true, ticks:{ ...AXIS.ticks, callback:MXN } } } },
+    plugins: [cohortLabels]
+  });
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -609,12 +815,16 @@ function buildLadder() {
     return { name:c.name, comm:c.comm, rev:x.rev, gpm, cm, share: pl.revenue ? 100*x.rev/pl.revenue : 0 };
   });
 
+  // Gross margin / contribution use the same light->deep purple ramp as the
+  // funnel bars elsewhere (they're the same two metrics, just drawn as a
+  // ladder here) — --bad stays reserved for the one thing that's actually
+  // lost (the commission gap), consistent with how red is used everywhere else.
   const bar = (gpm, cm) => {
     const W = 260, scale = v => 4 + (v/100)*(W-8);
     return `<svg viewBox="0 0 ${W} 52" width="100%" style="height:52px">
-      <rect x="4" y="6" width="${scale(gpm)-4}" height="14" fill="#0E6B58" rx="1"/>
+      <rect x="4" y="6" width="${scale(gpm)-4}" height="14" fill="#9B7FC4" rx="1"/>
       <text x="${scale(gpm)+6}" y="17" font-size="10" font-weight="600" fill="#1C1B22">${gpm.toFixed(1)}%</text>
-      <rect x="4" y="27" width="${scale(cm)-4}" height="14" fill="#1C1B22" rx="1"/>
+      <rect x="4" y="27" width="${scale(cm)-4}" height="14" fill="#2E1A4D" rx="1"/>
       <rect x="${scale(cm)}" y="27" width="${scale(gpm)-scale(cm)}" height="14" fill="#C4326E" rx="1"/>
       <text x="${scale(gpm)+6}" y="38" font-size="10" font-weight="600" fill="#1C1B22">${cm.toFixed(1)}%</text>
       <text x="4" y="50" font-size="9" fill="#6B6478">gross → contribution</text></svg>`;
@@ -627,13 +837,13 @@ function buildLadder() {
       const drop = r.gpm - r.cm, big = drop > 10;
       return `<div class="rung${big?' alert':''}">
         <div class="rname">${r.name}</div>
-        <div class="rmeta">${r.share.toFixed(1)}% of revenue · ${money(r.rev)} · ${(r.comm*100).toFixed(0)}% commission</div>
+        <div class="rmeta">${r.share.toFixed(1)}% of total revenue · ${money(r.rev)} · ${(r.comm*100).toFixed(0)}% commission</div>
         ${bar(r.gpm, r.cm)}
         <span class="drop ${big?'big':'small'}">−${drop.toFixed(1)}pp to commission</span></div>`;
     }).join('')}</div>
-    <div class="legend"><span><i style="background:#0E6B58"></i>Gross margin</span>
+    <div class="legend"><span><i style="background:#9B7FC4"></i>Gross margin</span>
       <span><i style="background:#C4326E"></i>Lost to commission</span>
-      <span><i style="background:#1C1B22"></i>Contribution retained</span></div></div>`;
+      <span><i style="background:#2E1A4D"></i>Contribution retained</span></div></div>`;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -657,17 +867,769 @@ function buildScorecard() {
       <th>Commission</th><th>Opex</th><th>Op profit</th><th>Op %</th><th>Rev / m²</th></tr></thead>
     <tbody>${rows.map(r=>`<tr class="${STATE.locs.has(r.i)?'sel':''}" onclick="toggleLoc(${r.i})">
       <td>${r.name}${r.opm<0?'<span class="tag t-flag">loss-making</span>':''}</td>
-      <td>${r.fmt}</td><td><span class="tag ${r.cohort==='Same-store'?'t-same':'t-new'}">${r.cohort}</span></td>
+      <td>${r.fmt}</td><td><span class="tag" style="background:${COHORT_TAG_COLOR[r.cohort]};color:#FFFFFF">${cohortLabel(r.cohort)}</span></td>
       <td>${money(r.rev)}</td><td>${r.gpm.toFixed(1)}%</td><td>${money(r.comm)}</td><td>${money(r.opex)}</td>
       <td class="${r.op>=0?'up':'down'}">${money(r.op)}</td>
       <td class="${r.opm>=0?'up':'down'}"><b>${r.opm.toFixed(1)}%</b></td>
-      <td>${money(r.rsqm)}</td></tr>`).join('')}</tbody></table></div>`;
+      <td>${moneyK(r.rsqm)}</td></tr>`).join('')}</tbody></table></div>`;
 }
 
 function toggleLoc(i) {
   if (STATE.locs.has(i)) { STATE.locs.clear(); STATE.view='format'; STATE.selectedLoc=null; }
   else { STATE.locs.clear(); STATE.locs.add(i); STATE.view='location'; STATE.selectedLoc=i; }
   render();
+}
+
+// ═══════════════════════════════════════════════════════════
+// SECTION 2 — SALES & GROSS PROFIT
+// ═══════════════════════════════════════════════════════════
+
+// Sequential purple ramp for the revenue -> gross profit -> contribution funnel.
+// These are NESTED measures (contribution is inside GP is inside revenue), so the
+// colour job is sequential (light = top of funnel, dark = what survives), not
+// categorical. Steps chosen so adjacent bars stay separable under colour-blindness.
+const FUNNEL = [
+  { key:'rev', label:'Net revenue',   color:'#9B7FC4' },
+  { key:'gp',  label:'Gross profit',  color:'#6B44A6' },
+  { key:'cn',  label:'Contribution',  color:'#2E1A4D' }
+];
+
+// Shared config for the two grouped-bar breakdowns (channel and category).
+function funnelBarConfig(labels, rows) {
+  return {
+    type: 'bar',
+    data: { labels, datasets: FUNNEL.map(f => ({
+      label: f.label, data: rows.map(r => r[f.key]), backgroundColor: f.color,
+      borderRadius: { topLeft:4, topRight:4 },   // round the data-end only
+      categoryPercentage: 0.68, barPercentage: 0.9
+    })) },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position:'bottom', labels:{ boxWidth:12, font:{size:11}, color:'#3A3644' } },
+        tooltip: { callbacks: { label: c => `${c.dataset.label}: ${MXN(c.parsed.y)}` } }
+      },
+      scales: { x: AXIS, y: { ...AXIS, beginAtZero:true, ticks:{ ...AXIS.ticks, callback: MXN } } } }
+  };
+}
+
+// Turn a byChan/byCat bucket into the derived measures every Section 2 visual needs.
+function funnelRow(name, x, totalRev, extra = {}) {
+  const gp = x.rev - x.cogs, cn = gp - x.comm;
+  return { name, rev:x.rev, gp, cn, units:x.units, disc:x.disc, comm:x.comm,
+    gpm:  x.rev ? 100*gp/x.rev : 0,
+    cnm:  x.rev ? 100*cn/x.rev : 0,
+    share: totalRev ? 100*x.rev/totalRev : 0,
+    // discount is expressed against GROSS sales (net + discount), the standard base
+    discPct: (x.rev + x.disc) ? 100*x.disc/(x.rev + x.disc) : 0, ...extra };
+}
+
+function buildSalesTrend(a, b) {
+  document.getElementById('salesTrend').innerHTML = `
+    <div class="card"><h3>Revenue trend</h3>
+    <div class="note">Net revenue by month, grouped by store format.</div>
+    <div class="chartBox"><canvas id="revChart"></canvas></div></div>`;
+  drawChart(a, b);   // canvas must exist in the DOM before Chart.js binds to it
+}
+
+// ---------- by channel ----------
+function buildChannelBreakdown(a, b) {
+  // NOTE: deliberately passes an EMPTY channel filter. This chart's whole job is
+  // comparing channels — if it honoured the channel chips it would collapse to a
+  // single bar and answer nothing. Location and category filters DO apply.
+  const pl = computePL(a, b, { locs: STATE.locs, chans: new Set(), cats: STATE.cats });
+  const rows = DATA.channels.map((c,i) => funnelRow(c.name, pl.byChan[i], pl.revenue, { rate:c.comm }));
+
+  document.getElementById('chanBreak').innerHTML = `
+    <div class="card"><h3>Channel breakdown</h3>
+    <div class="note">Net revenue, gross profit and contribution by channel, in absolute pesos.</div>
+    <div class="chartBox"><canvas id="chanChart"></canvas></div>
+    <table style="margin-top:16px"><thead><tr>
+      <th>Channel</th><th>Commission</th><th>Units</th><th>Discount %</th><th>Net revenue</th>
+      <th>% of total revenue</th><th>Gross profit</th><th>GP %</th><th>Contribution</th><th>Contribution %</th>
+    </tr></thead><tbody>
+    ${rows.map(r => `<tr>
+      <td>${r.name}</td><td>${(r.rate*100).toFixed(0)}%</td><td>${num(r.units)}</td>
+      <td>${r.discPct.toFixed(2)}%</td><td>${money(r.rev)}</td><td>${r.share.toFixed(1)}%</td>
+      <td>${money(r.gp)}</td><td>${r.gpm.toFixed(1)}%</td>
+      <td>${money(r.cn)}</td><td><b>${r.cnm.toFixed(1)}%</b></td></tr>`).join('')}
+    </tbody></table></div>`;
+
+  upsertChart('chanChart', funnelBarConfig(rows.map(r => r.name), rows));
+}
+
+// ---------- by category ----------
+function buildCategoryBreakdown(a, b) {
+  // Same reasoning as channel: empty category filter so all three always show.
+  const pl = computePL(a, b, { locs: STATE.locs, chans: STATE.chans, cats: new Set() });
+  const rows = DATA.categories.map((c,i) => funnelRow(c, pl.byCat[i], pl.revenue));
+
+  document.getElementById('catBreak').innerHTML = `
+    <div class="card"><h3>Category breakdown</h3>
+    <div class="note">Net revenue, gross profit and contribution by category, in absolute pesos.</div>
+    <div class="chartBox"><canvas id="catChart"></canvas></div>
+    <table style="margin-top:16px"><thead><tr>
+      <th>Category</th><th>Units</th><th>Discount %</th><th>Net revenue</th><th>% of total revenue</th>
+      <th>Gross profit</th><th>GP %</th><th>Contribution</th><th>Contribution %</th>
+    </tr></thead><tbody>
+    ${rows.map(r => `<tr>
+      <td>${r.name}</td><td>${num(r.units)}</td><td>${r.discPct.toFixed(2)}%</td>
+      <td>${money(r.rev)}</td><td>${r.share.toFixed(1)}%</td>
+      <td>${money(r.gp)}</td><td>${r.gpm.toFixed(1)}%</td>
+      <td>${money(r.cn)}</td><td><b>${r.cnm.toFixed(1)}%</b></td></tr>`).join('')}
+    </tbody></table></div>`;
+
+  upsertChart('catChart', funnelBarConfig(rows.map(r => r.name), rows));
+}
+
+// ---------- category x channel contribution matrix ----------
+// Cross-tab. computePL returns byCat and byChan separately, never their
+// intersection, so this walks the sales fact once and accumulates on both keys.
+function catChanCells(a, b) {
+  const cells = DATA.categories.map(() => DATA.channels.map(() => ({ rev:0, cogs:0, comm:0 })));
+  const okL = l => STATE.locs.size === 0 || STATE.locs.has(l);
+  for (const r of DATA.sales) {
+    const [m, l, c, p, q, net] = r;
+    if (m < a || m > b || !okL(l)) continue;
+    const x = cells[DATA.products[p].cat][c];
+    x.rev += net; x.cogs += q * DATA.products[p].cost; x.comm += net * DATA.channels[c].comm;
+  }
+  return cells;
+}
+
+function buildCatChanMatrix(a, b) {
+  const cells = catChanCells(a, b);
+  // FIXED colour scale (0-75%), not min-max of the current view. A relative scale
+  // would repaint every cell whenever a filter changed, so the same shade would
+  // mean different things at different times.
+  const shade = v => `background:rgba(91,51,153,${(Math.max(0, Math.min(v,75))/75*0.55).toFixed(3)})`;
+
+  document.getElementById('catChanMatrix').innerHTML = `
+    <div class="card"><h3>Contribution margin — category × channel</h3>
+    <div class="note">Contribution margin (%) by category and channel, after commission.</div>
+    <table class="mtx"><thead><tr><th>Category</th>
+      ${DATA.channels.map(c => `<th>${c.name}<br><span style="font-weight:400;text-transform:none;letter-spacing:0">${(c.comm*100).toFixed(0)}% commission</span></th>`).join('')}
+      <th>All channels</th></tr></thead><tbody>
+    ${DATA.categories.map((cat, ci) => {
+      const tot = cells[ci].reduce((s,x) => ({ rev:s.rev+x.rev, cogs:s.cogs+x.cogs, comm:s.comm+x.comm }), {rev:0,cogs:0,comm:0});
+      const cm = x => x.rev ? 100*(x.rev - x.cogs - x.comm)/x.rev : 0;
+      return `<tr><td>${cat}</td>
+        ${cells[ci].map(x => {
+          const v = cm(x);
+          return `<td><span class="cell" style="${shade(v)}">
+            ${v.toFixed(1)}%<small>${money(x.rev)} revenue</small></span></td>`;
+        }).join('')}
+        <td><span class="cell" style="${shade(cm(tot))}">${cm(tot).toFixed(1)}%<small>${money(tot.rev)} revenue</small></span></td></tr>`;
+    }).join('')}
+    </tbody></table>
+    <div class="legend" style="margin-top:12px">
+      <span class="swatch"><i style="background:rgba(91,51,153,0.12)"></i>lower contribution</span>
+      <span class="swatch"><i style="background:rgba(91,51,153,0.55)"></i>higher contribution</span>
+    </div></div>`;
+}
+
+// ---------- by location: efficiency vs profitability ----------
+// "Efficient" (revenue per m² — space/sales density) and "profitable" (operating
+// margin) are different questions per the handoff, so this plots them on separate
+// axes rather than blending into one score. Colour = cohort — the direct answer
+// to "how are new locations performing." Always shows all 16 locations (same
+// convention as the scorecard); respects period/channel/category filters.
+function buildLocationEfficiency(a, b) {
+  const pl = computePL(a, b, { locs:new Set(), chans:STATE.chans, cats:STATE.cats });
+  const pts = DATA.locations.map((l,i) => {
+    const x = pl.byLoc[i]; const op = x.rev - x.cogs - x.comm - x.opex;
+    return { name:l.name, fmt:l.format, cohort:l.cohort, rev:x.rev,
+             rsqm: x.rev / l.sqm, opm: x.rev ? 100*op/x.rev : 0 };
+  }).filter(p => p.rev > 0);
+
+  const avgRsqm = pts.reduce((s,p)=>s+p.rsqm,0) / pts.length;
+  const avgOpm  = pts.reduce((s,p)=>s+p.opm,0)  / pts.length;
+
+  const COHORTS = ['2025 openings','2024 openings','Same-store'];
+
+  const datasets = COHORTS.map(c => {
+    const rows = pts.filter(p => p.cohort === c);
+    return {
+      label: cohortLabel(c),
+      data: rows.map(p => ({ x:p.rsqm, y:p.opm, name:p.name, fmt:p.fmt })),
+      backgroundColor: COHORT_COLOR[c],
+      // a genuinely negative operating margin gets a red ring — --bad is
+      // reserved for real losses, and Condesa is the only one here
+      pointBorderColor: rows.map(p => p.opm < 0 ? BRAND.bad : COHORT_COLOR[c]),
+      pointBorderWidth: rows.map(p => p.opm < 0 ? 2 : 0),
+      pointRadius: 6, pointHoverRadius: 8
+    };
+  });
+
+  // live check on "how are new locations performing" — do they actually cluster
+  // below the same-store average, or is the spread similar?
+  const ssRows = pts.filter(p => p.cohort === 'Same-store');
+  const ssAvg = ssRows.length ? ssRows.reduce((s,p)=>s+p.opm,0)/ssRows.length : null;
+  const newRows = pts.filter(p => p.cohort !== 'Same-store');
+  const newMin = newRows.length ? Math.min(...newRows.map(p=>p.opm)) : null;
+  const newMax = newRows.length ? Math.max(...newRows.map(p=>p.opm)) : null;
+
+  document.getElementById('locBreak').innerHTML = `
+    <div class="card"><h3>Efficiency vs profitability by location</h3>
+    <div class="note">${periodLabel()}. X = revenue per m² (space efficiency). Y = operating margin
+    (profitability). Dashed lines mark the group average on each axis; colour is cohort.</div>
+    <div class="chartBoxTall"><canvas id="locEffChart"></canvas></div>
+    ${newRows.length ? `<div class="assume" style="margin-top:12px">New-store operating margins range from
+    <b>${newMin.toFixed(1)}%</b> to <b>${newMax.toFixed(1)}%</b>${ssAvg!==null?`, spanning both sides of the
+    <b>${ssAvg.toFixed(1)}%</b> average for established locations`:''} — opening year alone doesn't predict performance.
+    The point below the x-axis is Condesa; see the Income Statement tab for the peer diagnosis.</div>` : ''}
+    </div>`;
+
+  upsertChart('locEffChart', {
+    type: 'scatter',
+    data: { datasets },
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins: {
+        legend: { position:'bottom', labels:{ boxWidth:12, font:{size:11}, color:'#3A3644' } },
+        tooltip: { callbacks: {
+          title: c => c[0].raw.name,
+          label: c => [c.raw.fmt, '$'+Math.round(c.raw.x/1e3)+'k/m²', c.parsed.y.toFixed(1)+'% op margin']
+        } }
+      },
+      scales: {
+        x: { ...AXIS, title:{ display:true, text:'Revenue / m²', color:'#6B6478', font:{size:11} },
+             ticks:{ ...AXIS.ticks, callback:v=>'$'+Math.round(v/1e3)+'k' } },
+        y: { ...AXIS, title:{ display:true, text:'Operating margin', color:'#6B6478', font:{size:11} },
+             ticks:{ ...AXIS.ticks, callback:v=>v+'%' } }
+      } },
+    plugins: [{
+      id: 'avgLines',
+      afterDraw(chart) {
+        const { ctx, chartArea:{left,right,top,bottom}, scales:{x,y} } = chart;
+        ctx.save(); ctx.strokeStyle = '#D8D4E2'; ctx.setLineDash([4,4]); ctx.lineWidth = 1;
+        const yPix = y.getPixelForValue(avgOpm);
+        ctx.beginPath(); ctx.moveTo(left, yPix); ctx.lineTo(right, yPix); ctx.stroke();
+        const xPix = x.getPixelForValue(avgRsqm);
+        ctx.beginPath(); ctx.moveTo(xPix, top); ctx.lineTo(xPix, bottom); ctx.stroke();
+        ctx.restore();
+      }
+    }]
+  });
+}
+
+// ---------- individual product ----------
+// The 4th named analysis dimension (location/channel/category are all built
+// above; product wasn't). Sortable by clicking a column header — click again
+// to flip direction. Imputed-cost products (DQ1) are flagged here; this is
+// the only place that flag is visible anywhere in the dashboard.
+const PROD_COLS = [
+  { key:'name',    label:'Product',      type:'text' },
+  { key:'cat',     label:'Category',     type:'text' },
+  { key:'price',   label:'Price',        type:'num' },
+  { key:'cost',    label:'Cost',         type:'num' },
+  { key:'units',   label:'Units',        type:'num' },
+  { key:'rev',     label:'Revenue',      type:'num' },
+  { key:'discPct', label:'Discount %',   type:'num' },
+  { key:'gp',      label:'Gross profit', type:'num' },
+  { key:'gpm',     label:'Margin %',     type:'num' }
+];
+
+function buildProductTable(a, b) {
+  const okL = l => STATE.locs.size === 0 || STATE.locs.has(l);
+  const okC = c => STATE.chans.size === 0 || STATE.chans.has(c);
+  const okK = k => STATE.cats.size === 0 || STATE.cats.has(k);
+
+  const agg = DATA.products.map(() => ({ units:0, rev:0, disc:0, cogs:0 }));
+  for (const r of DATA.sales) {
+    const [m, l, c, p, q, net, disc] = r;
+    if (m < a || m > b || !okL(l) || !okC(c) || !okK(DATA.products[p].cat)) continue;
+    agg[p].units += q; agg[p].rev += net; agg[p].disc += disc;
+    agg[p].cogs += q * DATA.products[p].cost;
+  }
+
+  let rows = DATA.products.map((prod,i) => {
+    const x = agg[i]; const gp = x.rev - x.cogs;
+    return {
+      name: prod.name, cat: DATA.categories[prod.cat], price: prod.price, cost: prod.cost,
+      imputed: prod.imputed, units: x.units, rev: x.rev,
+      discPct: (x.rev + x.disc) ? 100*x.disc/(x.rev+x.disc) : 0,
+      gp, gpm: x.rev ? 100*gp/x.rev : 0
+    };
+  }).filter(r => r.units > 0);
+
+  const { key, dir } = STATE.prodSort;
+  rows.sort((p,q) => typeof p[key] === 'string' ? dir*p[key].localeCompare(q[key]) : dir*(p[key]-q[key]));
+
+  const headerCell = c => {
+    const active = STATE.prodSort.key === c.key;
+    return `<th data-key="${c.key}" style="cursor:pointer">${c.label}${active ? (STATE.prodSort.dir===1?' ▲':' ▼') : ''}</th>`;
+  };
+
+  document.getElementById('prodTable').innerHTML = `
+    <div class="card"><h3>Product detail</h3>
+    <div class="note">${periodLabel()}. Click a column header to sort. "Imputed cost" products had no
+    standard cost in the source data — cost is estimated from category cost ratios (see DQ1).</div>
+    <table><thead><tr>${PROD_COLS.map(headerCell).join('')}</tr></thead><tbody>
+    ${rows.map(r => `<tr>
+      <td>${r.name}${r.imputed ? '<span class="tag t-flag">imputed cost</span>' : ''}</td>
+      <td>${r.cat}</td>
+      <td>${moneyUnit(r.price)}</td>
+      <td>${moneyUnit(r.cost)}</td>
+      <td>${num(r.units)}</td>
+      <td>${money(r.rev)}</td>
+      <td>${r.discPct.toFixed(2)}%</td>
+      <td>${money(r.gp)}</td>
+      <td>${r.gpm.toFixed(1)}%</td></tr>`).join('')}
+    </tbody></table></div>`;
+
+  document.querySelectorAll('#prodTable th[data-key]').forEach(th => {
+    th.onclick = () => {
+      const k = th.dataset.key;
+      if (STATE.prodSort.key === k) STATE.prodSort.dir *= -1;
+      else STATE.prodSort = { key:k, dir: PROD_COLS.find(c=>c.key===k).type === 'text' ? 1 : -1 };
+      buildProductTable(a, b);   // re-render just this table — no need to re-filter/re-render the whole tab
+    };
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// SECTION 3 — INCOME STATEMENT
+// ═══════════════════════════════════════════════════════════
+
+// The P&L steps in display order. `sign` says whether the step is a running
+// total (anchor) or something being subtracted from the previous anchor.
+const PL_STEPS = [
+  { key:'revenue',     label:'Net revenue',   type:'total' },
+  { key:'cogs',        label:'COGS',          type:'less' },
+  { key:'grossProfit', label:'Gross profit',  type:'total' },
+  { key:'commission',  label:'Commission',    type:'less' },
+  { key:'contribution',label:'Contribution',  type:'total' },
+  // `group` is only read by the statement table (adds a header + subtotal row);
+  // the waterfall ignores it and keeps these five as individual bars, since
+  // collapsing them there would undercut the one chart whose job is showing
+  // each cost landing separately.
+  { key:'labor',       label:'Labour',        type:'less', group:'Operating costs' },
+  { key:'rent',        label:'Rent',          type:'less', group:'Operating costs' },
+  { key:'util',        label:'Utilities',     type:'less', group:'Operating costs' },
+  { key:'mkt',         label:'Marketing',     type:'less', group:'Operating costs' },
+  { key:'other',       label:'Other opex',    type:'less', group:'Operating costs' },
+  { key:'operating',   label:'Operating profit', type:'total' }
+];
+
+// Chart.js has no native waterfall type, so this is the standard vanilla
+// technique: a stacked bar per step with an invisible "base" segment (holds
+// the bar at the right height) and a visible "delta" segment on top. Each bar
+// lands exactly where the previous one ended, which is the whole point of a
+// waterfall — a table alone can't show that.
+function buildWaterfall(pl) {
+  document.getElementById('waterfall').innerHTML = `
+    <div class="card"><h3>Revenue to operating profit</h3>
+    <div class="note">Each bar starts where the previous one ended. Purple bars are running
+    totals; grey bars are what gets subtracted to reach the next total.</div>
+    <div class="chartBoxTall"><canvas id="waterfallChart"></canvas></div></div>`;
+
+  let running = 0;
+  const labels = [], base = [], delta = [], colors = [], raw = [];
+  PL_STEPS.forEach(s => {
+    const v = pl[s.key];
+    labels.push(s.label);
+    if (s.type === 'total') {
+      running = v;
+      base.push(0); delta.push(v); colors.push(BRAND.purple); raw.push(v);
+    } else {
+      base.push(running - v); delta.push(v); colors.push(BRAND.slate); raw.push(-v);
+      running -= v;
+    }
+  });
+
+  upsertChart('waterfallChart', {
+    type: 'bar',
+    data: { labels, datasets: [
+      { label: 'base', data: base, backgroundColor: 'transparent', stack: 's' },
+      { label: 'amount', data: delta, backgroundColor: colors, stack: 's',
+        borderRadius: 3, borderSkipped: false }
+    ] },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false },
+        tooltip: { filter: c => c.datasetIndex === 1,   // dataset 0 is the invisible spacer
+          callbacks: { label: c => (raw[c.dataIndex] < 0 ? '−' : '') + MXN(Math.abs(raw[c.dataIndex])) } } },
+      scales: { x: AXIS, y: { ...AXIS, ticks: { ...AXIS.ticks, callback: MXN } } } }
+  });
+}
+
+// Full statement: every line, amount, % of revenue, PY, variance. This is the
+// table someone checks the waterfall's arithmetic against, so it uses the exact
+// same PL_STEPS list and the exact same computePL() output as the chart above it.
+function buildStatement(cur, py) {
+  const rows = PL_STEPS.map(s => {
+    const v = cur[s.key];
+    const pyV = py ? py[s.key] : null;
+    const varAmt = pyV !== null ? v - pyV : null;
+    const varPct = (pyV !== null && pyV !== 0) ? 100 * (v / pyV - 1) : null;
+    return { ...s, v, pyV, varAmt, varPct };
+  });
+
+  // Build table rows, inserting a group header before a group's first line and
+  // a "Total <group>" subtotal after its last line — currently just Operating
+  // costs (Labour..Other), but this generalises if another group is ever added.
+  const trs = [];
+  let openGroup = null, agg = null;
+  const flushGroup = () => {
+    if (!openGroup) return;
+    const varAmt = agg.pyV !== null ? agg.v - agg.pyV : null;
+    const varPct = (agg.pyV !== null && agg.pyV !== 0) ? 100 * (agg.v / agg.pyV - 1) : null;
+    trs.push(`<tr class="subtot">
+      <td>Total ${openGroup.toLowerCase()}</td>
+      <td class="down">−${money(agg.v)}</td>
+      <td>${cur.revenue ? pct(100*agg.v/cur.revenue) : '—'}</td>
+      <td>${agg.pyV !== null ? money(agg.pyV) : '—'}</td>
+      <td>${varAmt !== null ? `${varAmt>=0?'+':''}${money(varAmt)}${varPct!==null?` (${varPct>=0?'+':''}${varPct.toFixed(1)}%)`:''}` : '—'}</td></tr>`);
+    openGroup = null; agg = null;
+  };
+
+  rows.forEach(r => {
+    if (r.group !== openGroup) {
+      flushGroup();
+      if (r.group) {
+        trs.push(`<tr class="rowgroup"><td colspan="5">${r.group}</td></tr>`);
+        openGroup = r.group; agg = { v: 0, pyV: py ? 0 : null };
+      }
+    }
+    if (openGroup) { agg.v += r.v; if (agg.pyV !== null) agg.pyV += r.pyV; }
+    trs.push(`<tr class="${r.type === 'total' ? 'subtot' : ''}">
+      <td>${r.group ? '&nbsp;&nbsp;' + r.label : r.label}</td>
+      <td class="${r.type==='less' && r.v>0 ? 'down' : ''}">${r.type==='less'&&r.v>0?'−':''}${money(r.v)}</td>
+      <td>${cur.revenue ? pct(100*r.v/cur.revenue) : '—'}</td>
+      <td>${r.pyV !== null ? money(r.pyV) : '—'}</td>
+      <td>${r.varAmt !== null
+        ? `<span class="${r.type==='total' ? (r.varAmt>=0?'up':'down') : ''}">${r.varAmt>=0?'+':''}${money(r.varAmt)}${r.varPct!==null?` (${r.varPct>=0?'+':''}${r.varPct.toFixed(1)}%)`:''}</span>`
+        : '—'}</td></tr>`);
+  });
+  flushGroup();
+
+  document.getElementById('plStatement').innerHTML = `
+    <div class="card"><h3>Full statement</h3>
+    <div class="note">${periodLabel()}${py ? ' vs prior-year equivalent' : ' — no prior-year period in range'}.</div>
+    <table><thead><tr><th>Line</th><th>Amount</th><th>% of revenue</th>
+      <th>Prior year</th><th>Variance</th></tr></thead><tbody>
+    ${trs.join('')}
+    </tbody></table>
+    <div class="note" style="margin-top:10px">Variance is colour-coded only on total/subtotal rows (revenue,
+    gross profit, contribution, operating profit), where a higher number is unambiguously better. Cost lines
+    grow with volume by design, so a cost increase alone isn't colour-coded good or bad here.</div></div>`;
+}
+
+// Operating margin by location — the primary visual here, not the supporting
+// element it is on the Executive Summary. Respects period/channel/category
+// filters and always shows all 16 locations (same convention as the scorecard).
+// The panel beside it is deliberately NOT filtered — it's pinned to Condesa's
+// FY2025 story, the same structural comparison as Finding 3, reused via
+// worstLocVsPeers() rather than recomputed.
+function buildLocMargin(a, b) {
+  const pl = computePL(a, b, { locs:new Set(), chans:STATE.chans, cats:STATE.cats });
+  const rows = DATA.locations.map((l,i) => {
+    const x = pl.byLoc[i]; const op = x.rev - x.cogs - x.comm - x.opex;
+    return { name:l.name, rev:x.rev, opm: x.rev ? 100*op/x.rev : 0 };
+  }).filter(r => r.rev > 0).sort((p,q) => p.opm - q.opm);
+
+  const cmp = worstLocVsPeers();
+  const row = (label, worstV, peerV, gapTxt, cls) =>
+    `<div class="peerStat"><span>${label}</span><b>${worstV} <span class="${cls||''}">vs ${peerV}${gapTxt?` (${gapTxt})`:''}</span></b></div>`;
+
+  document.getElementById('locMargin').innerHTML = `
+    <div class="grid2col">
+      <div class="card"><h3>Operating margin by location</h3>
+      <div class="note">${periodLabel()}, sorted low to high.</div>
+      <div class="chartBoxTall"><canvas id="locMarginChart"></canvas></div></div>
+
+      <div class="card"><h3>${cmp.worst.name} vs its peers</h3>
+      <div class="note">Fixed to full-year 2025 — ${cmp.peers.length} comparable stores, same
+      ${cmp.worst.fmt.toLowerCase()} format, ${cohortLabel(cmp.worst.cohort).toLowerCase()}.</div>
+      ${row('Revenue', money(cmp.worst.rev), money(cmp.peerRev), `${cmp.revGap.toFixed(1)}%`, 'down')}
+      ${row('Gross margin', pct(cmp.worst.gpm), pct(cmp.peerGpm), `${cmp.gpmGap>=0?'+':''}${cmp.gpmGap.toFixed(1)}pp`, '')}
+      ${row('Opex (absolute)', money(cmp.worst.opex), money(cmp.peerOpex), `${cmp.opexGap>=0?'+':''}${cmp.opexGap.toFixed(1)}%`, cmp.opexGap<=0?'up':'down')}
+      ${row('Opex % of revenue', pct(cmp.worst.opexPctRev), pct(cmp.peerOpexPct), `${cmp.opexPctGap>=0?'+':''}${cmp.opexPctGap.toFixed(1)}pp`, 'down')}
+      ${row('Operating margin', pct(cmp.worst.opm), pct(cmp.peerOpm), `${cmp.opmGap>=0?'+':''}${cmp.opmGap.toFixed(1)}pp`, 'down')}
+      <div class="assume" style="margin-top:12px">Gross margin and absolute opex are both close to peers — this
+      store isn't overspending. It carries a similar fixed cost base on ${Math.abs(cmp.revGap).toFixed(0)}% less
+      revenue, which is what pushes opex-to-revenue up and operating margin negative. The open question for the
+      client is demand at this site, not its cost control.</div></div>
+    </div>`;
+
+  upsertChart('locMarginChart', {
+    type: 'bar',
+    data: { labels: rows.map(r => r.name), datasets: [{
+      data: rows.map(r => r.opm),
+      backgroundColor: rows.map(r => r.opm < 0 ? BRAND.bad : BRAND.good),
+      borderRadius: 3, barPercentage: 0.75
+    }] },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display:false },
+        tooltip: { callbacks: { label: c => pct(c.parsed.x) } } },
+      scales: { x: { ...AXIS, ticks: { ...AXIS.ticks, callback: v => v.toFixed(0)+'%' } }, y: AXIS } }
+  });
+}
+
+// Actual net revenue vs monthly sales target. Both series are on the same
+// revenue scale, so one y-axis is correct — no dual-axis. Respects the same
+// location/channel/category filters as the rest of Section 3.
+function buildSalesTargetChart(a, b) {
+  const okL = l => STATE.locs.size === 0 || STATE.locs.has(l);
+  const okC = c => STATE.chans.size === 0 || STATE.chans.has(c);
+  const okP = p => STATE.cats.size === 0 || STATE.cats.has(DATA.products[p].cat);
+  const okK = k => STATE.cats.size === 0 || STATE.cats.has(k);
+
+  const months = DATA.months.slice(a, b+1);
+  const actual = new Array(months.length).fill(0);
+  const target = new Array(months.length).fill(0);
+
+  for (const r of DATA.sales) {
+    const [m, l, c, p, q, net] = r;
+    if (m < a || m > b || !okL(l) || !okC(c) || !okP(p)) continue;
+    actual[m - a] += net;
+  }
+  for (const r of DATA.targets) {
+    const [m, l, c, k, st] = r;
+    if (m < a || m > b || !okL(l) || !okC(c) || !okK(k)) continue;
+    target[m - a] += st;
+  }
+  const totalActual = actual.reduce((s,v)=>s+v,0), totalTarget = target.reduce((s,v)=>s+v,0);
+
+  document.getElementById('salesTarget').innerHTML = `
+    <div class="card"><h3>Sales vs target</h3>
+    <div class="note">${periodLabel()} — actual net revenue vs monthly sales target.
+    ${totalTarget ? `Attainment ${pct(100*totalActual/totalTarget)} (${money(totalActual-totalTarget)} gap).` : ''}</div>
+    <div class="chartBoxShort"><canvas id="salesTargetChart"></canvas></div></div>`;
+
+  upsertChart('salesTargetChart', {
+    type: 'line',
+    data: { labels: months, datasets: [
+      { label:'Actual', data: actual, borderColor: BRAND.purple, backgroundColor: BRAND.purple,
+        borderWidth:2, pointRadius:0, tension:.25 },
+      { label:'Target', data: target, borderColor: BRAND.slate, backgroundColor: BRAND.slate,
+        borderWidth:2, borderDash:[5,4], pointRadius:0, tension:.25 }
+    ] },
+    options: { responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins: { legend:{ position:'bottom', labels:{boxWidth:12,font:{size:11},color:'#3A3644'} },
+        tooltip:{ callbacks:{ label:c => `${c.dataset.label}: ${MXN(c.parsed.y)}` } } },
+      scales: { x:AXIS, y:{...AXIS, ticks:{...AXIS.ticks, callback:MXN}} } }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// SECTION 4 — INVENTORY
+// ═══════════════════════════════════════════════════════════
+
+// Real calendar days, not a 30-day approximation — days-of-inventory divides
+// by this, so a flat 30 would quietly misstate every location by up to ~3.5%.
+function daysInMonth(m) {
+  const [y, mo] = m.split('-').map(Number);
+  return new Date(y, mo, 0).getDate();
+}
+function daysInRange(a, b) {
+  let d = 0;
+  for (let i = a; i <= b; i++) d += daysInMonth(DATA.months[i]);
+  return d;
+}
+
+// Waste rate by location — same waste ÷ (usage + waste) definition as Finding 4
+// on the Executive Summary, so this can't quietly disagree with it. Sorted
+// worst to best. Always shows all 16 locations (ignores the location filter,
+// same convention as the scorecard); inventory has no channel/category
+// dimension to filter by at all.
+function buildWasteByLoc(a, b) {
+  const usage = new Array(DATA.locations.length).fill(0);
+  const waste = new Array(DATA.locations.length).fill(0);
+  for (const r of DATA.inventory) {
+    const [m, l, it, op, pu, us, wa] = r;
+    if (m < a || m > b) continue;
+    const c = DATA.items[it].cost;
+    usage[l] += us * c; waste[l] += wa * c;
+  }
+  const rows = DATA.locations.map((loc,i) => ({
+    name: loc.name, wastePct: (usage[i]+waste[i]) ? 100*waste[i]/(usage[i]+waste[i]) : 0
+  })).sort((p,q) => q.wastePct - p.wastePct);
+
+  const avg = rows.reduce((s,r)=>s+r.wastePct,0) / rows.length;
+
+  document.getElementById('wasteByLoc').innerHTML = `
+    <div class="card"><h3>Waste rate by location</h3>
+    <div class="note">${periodLabel()}. Waste ÷ (consumption + waste), sorted worst to best.
+    Ringed bars are more than 2× the group average. Always shows all 16 locations.</div>
+    <div class="chartBoxTall"><canvas id="wasteByLocChart"></canvas></div></div>`;
+
+  upsertChart('wasteByLocChart', {
+    type: 'bar',
+    data: { labels: rows.map(r=>r.name), datasets: [{
+      data: rows.map(r=>r.wastePct),
+      backgroundColor: BRAND.purple,
+      borderColor: rows.map(r => r.wastePct > 2*avg ? BRAND.bad : BRAND.purple),
+      borderWidth: rows.map(r => r.wastePct > 2*avg ? 2 : 0),
+      borderSkipped:false, borderRadius:3, barPercentage:0.75
+    }] },
+    options: { indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins: { legend:{display:false}, tooltip:{ callbacks:{ label:c=>pct(c.parsed.x) } } },
+      scales: { x:{...AXIS, ticks:{...AXIS.ticks, callback:v=>v.toFixed(0)+'%'}}, y:AXIS } }
+  });
+}
+
+// Consumption vs waste value over time — checks whether the rate is stable,
+// rising, or seasonal. Respects the location filter; channel/category don't
+// apply here since inventory carries neither dimension in the source data.
+function buildWasteOverTime(a, b) {
+  const okL = l => STATE.locs.size === 0 || STATE.locs.has(l);
+  const months = DATA.months.slice(a, b+1);
+  const usage = new Array(months.length).fill(0);
+  const waste = new Array(months.length).fill(0);
+  for (const r of DATA.inventory) {
+    const [m, l, it, op, pu, us, wa] = r;
+    if (m < a || m > b || !okL(l)) continue;
+    const c = DATA.items[it].cost;
+    usage[m-a] += us*c; waste[m-a] += wa*c;
+  }
+  const rates = months.map((_,i) => (usage[i]+waste[i]) ? 100*waste[i]/(usage[i]+waste[i]) : 0);
+  const rMin = Math.min(...rates), rMax = Math.max(...rates);
+
+  document.getElementById('wasteOverTime').innerHTML = `
+    <div class="card"><h3>Consumption and waste over time</h3>
+    <div class="note">${periodLabel()}. Inventory has no channel or category dimension, so only
+    the period and location filters apply on this tab.</div>
+    <div class="chartBoxTall"><canvas id="wasteOverTimeChart"></canvas></div>
+    ${months.length > 1 ? `<div class="assume" style="margin-top:12px">Monthly waste rate ranges from
+    <b>${rMin.toFixed(1)}%</b> to <b>${rMax.toFixed(1)}%</b> over this period —
+    ${rMax-rMin < 2 ? 'stable, no clear seasonal swing.' : 'some month-to-month variation; check the chart for a seasonal pattern.'}</div>` : ''}
+    </div>`;
+
+  upsertChart('wasteOverTimeChart', {
+    type: 'line',
+    data: { labels: months, datasets: [
+      { label:'Consumption', data:usage, borderColor:BRAND.purple, backgroundColor:BRAND.purple,
+        borderWidth:2, pointRadius:0, tension:.25 },
+      { label:'Waste', data:waste, borderColor:BRAND.bad, backgroundColor:BRAND.bad,
+        borderWidth:2, pointRadius:0, tension:.25 }
+    ] },
+    options: { responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins: { legend:{ position:'bottom', labels:{boxWidth:12,font:{size:11},color:'#3A3644'} },
+        tooltip:{ callbacks:{ label:c => `${c.dataset.label}: ${MXN(c.parsed.y)}` } } },
+      scales: { x:AXIS, y:{...AXIS, ticks:{...AXIS.ticks, callback:MXN}} } }
+  });
+}
+
+// Waste value by item, top 10 of 15 — shows WHERE the money is, even though
+// the waste RATE (previous chart) is close to uniform. Two lenses on the same
+// problem: rate says "process issue everywhere," value says a handful of
+// high-volume items (likely coffee beans) carry most of the peso impact.
+function buildWasteByItem(a, b) {
+  const okL = l => STATE.locs.size === 0 || STATE.locs.has(l);
+  const wasteVal = new Array(DATA.items.length).fill(0);
+  for (const r of DATA.inventory) {
+    const [m, l, it, op, pu, us, wa] = r;
+    if (m < a || m > b || !okL(l)) continue;
+    wasteVal[it] += wa * DATA.items[it].cost;
+  }
+  const rows = DATA.items.map((item,i) => ({ name:item.name, val:wasteVal[i] }))
+    .sort((p,q) => q.val - p.val);
+  const top = rows.slice(0, 10);
+  const restVal = rows.slice(10).reduce((s,r)=>s+r.val,0);
+  const shown = restVal > 0 ? [...top, { name:`All other items (${rows.length-10})`, val:restVal, other:true }] : top;
+
+  document.getElementById('wasteByItem').innerHTML = `
+    <div class="card"><h3>Waste value by item</h3>
+    <div class="note">${periodLabel()}. Top 10 of ${rows.length} items by peso value written off.</div>
+    <div class="chartBoxTall"><canvas id="wasteByItemChart"></canvas></div></div>`;
+
+  upsertChart('wasteByItemChart', {
+    type: 'bar',
+    data: { labels: shown.map(r=>r.name), datasets: [{
+      data: shown.map(r=>r.val),
+      backgroundColor: shown.map(r => r.other ? BRAND.slate : BRAND.purple),
+      borderRadius:3, barPercentage:0.75
+    }] },
+    options: { indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins: { legend:{display:false}, tooltip:{ callbacks:{ label:c=>MXN(c.parsed.x) } } },
+      scales: { x:{...AXIS, ticks:{...AXIS.ticks, callback:MXN}}, y:AXIS } }
+  });
+}
+
+// Days of inventory by location — closing stock value ÷ average daily
+// consumption value. Flags both directions: unusually high (cash tied up,
+// spoilage risk) and unusually low (stockout risk). Always shows all 16
+// locations, respects the period filter only.
+function buildDoiByLoc(a, b) {
+  const days = daysInRange(a, b);
+  const usageVal = new Array(DATA.locations.length).fill(0);
+  const closeVal = new Array(DATA.locations.length).fill(0);
+  for (const r of DATA.inventory) {
+    const [m, l, it, op, pu, us, wa, cl] = r;
+    if (m < a || m > b) continue;
+    const c = DATA.items[it].cost;
+    usageVal[l] += us * c;
+    if (m === b) closeVal[l] += cl * c;   // stock is a snapshot — only the last month counts
+  }
+  const rows = DATA.locations.map((loc,i) => {
+    const dailyUsage = usageVal[i] / days;
+    return { name: loc.name, doi: dailyUsage ? closeVal[i] / dailyUsage : 0 };
+  }).filter(r => r.doi > 0).sort((p,q) => q.doi - p.doi);
+
+  const avg = rows.reduce((s,r)=>s+r.doi,0) / rows.length;
+
+  document.getElementById('doiByLoc').innerHTML = `
+    <div class="card"><h3>Days of inventory by location</h3>
+    <div class="note">${periodLabel()}. Closing stock value ÷ average daily consumption value.
+    Ringed bars are more than 1.5× the group average in either direction. Always shows all 16 locations.</div>
+    <div class="chartBoxTall"><canvas id="doiByLocChart"></canvas></div></div>`;
+
+  upsertChart('doiByLocChart', {
+    type: 'bar',
+    data: { labels: rows.map(r=>r.name), datasets: [{
+      data: rows.map(r=>r.doi),
+      backgroundColor: BRAND.purple,
+      borderColor: rows.map(r => (r.doi > 1.5*avg || r.doi < avg/1.5) ? BRAND.bad : BRAND.purple),
+      borderWidth: rows.map(r => (r.doi > 1.5*avg || r.doi < avg/1.5) ? 2 : 0),
+      borderSkipped:false, borderRadius:3, barPercentage:0.75
+    }] },
+    options: { indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins: { legend:{display:false}, tooltip:{ callbacks:{ label:c=>c.parsed.x.toFixed(1)+' days' } } },
+      scales: { x:{...AXIS, ticks:{...AXIS.ticks, callback:v=>v.toFixed(0)}}, y:AXIS } }
+  });
+}
+
+// Item-level detail — purchases, consumption, waste, waste%, closing stock,
+// days of cover. The detail layer under the four summary charts above.
+// Respects the location filter (aggregates across all locations if none
+// selected) and the period.
+function buildItemTable(a, b) {
+  const okL = l => STATE.locs.size === 0 || STATE.locs.has(l);
+  const days = daysInRange(a, b);
+  const purch = new Array(DATA.items.length).fill(0);
+  const usage = new Array(DATA.items.length).fill(0);
+  const waste = new Array(DATA.items.length).fill(0);
+  const close = new Array(DATA.items.length).fill(0);
+  for (const r of DATA.inventory) {
+    const [m, l, it, op, pu, us, wa, cl] = r;
+    if (m < a || m > b || !okL(l)) continue;
+    purch[it] += pu; usage[it] += us; waste[it] += wa;
+    if (m === b) close[it] += cl;
+  }
+  const rows = DATA.items.map((item,i) => {
+    const wastePct = (usage[i]+waste[i]) ? 100*waste[i]/(usage[i]+waste[i]) : 0;
+    const dailyUsage = usage[i] / days;
+    return { name:item.name, unit:item.unit, purch:purch[i], usage:usage[i], waste:waste[i],
+             wastePct, wasteVal: waste[i]*item.cost, close:close[i],
+             doi: dailyUsage ? close[i] / dailyUsage : 0 };
+  }).sort((p,q) => q.wasteVal - p.wasteVal);
+
+  document.getElementById('itemTable').innerHTML = `
+    <div class="card"><h3>Item-level detail</h3>
+    <div class="note">${periodLabel()}. Quantities are in each item's native unit.</div>
+    <table><thead><tr><th>Item</th><th>Purchases</th><th>Consumption</th><th>Waste</th>
+      <th>Waste %</th><th>Waste value</th><th>Closing stock</th><th>Days of cover</th></tr></thead>
+    <tbody>${rows.map(r => `<tr>
+      <td>${r.name}</td>
+      <td>${num(r.purch)} ${r.unit}</td>
+      <td>${num(r.usage)} ${r.unit}</td>
+      <td>${num(r.waste)} ${r.unit}</td>
+      <td>${r.wastePct.toFixed(1)}%</td>
+      <td>${money(r.wasteVal)}</td>
+      <td>${num(r.close)} ${r.unit}</td>
+      <td>${r.doi.toFixed(1)}</td></tr>`).join('')}
+    </tbody></table></div>`;
 }
 
 const TABS = [
